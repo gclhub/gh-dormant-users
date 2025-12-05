@@ -45,7 +45,7 @@ func generateDormantUserReport(cmd *cobra.Command, args []string) {
 
 	// Validate page number
 	if page < 0 {
-		pterm.Error.Println("Page number must be a positive integer")
+		pterm.Error.Println("Page number must be 0 or a positive integer")
 		os.Exit(1)
 	}
 
