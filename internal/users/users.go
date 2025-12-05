@@ -24,10 +24,23 @@ type User struct {
 
 type Users []User
 
-// getSpecificPage fetches only a specific page of users from the organization
+const usersPerPage = 100
+
+// getSpecificPage fetches a single page of users from the organization via GitHub API.
+// This function is used when pagination is requested to avoid fetching all users.
+//
+// Parameters:
+//   - organization: The name of the GitHub organization
+//   - email: Whether to fetch email addresses for users
+//   - client: The GitHub API REST client
+//   - spinner: Progress spinner for user feedback
+//   - page: The 1-based page number to fetch (each page contains up to 100 users)
+//
+// Returns:
+//   - Users: A slice containing the users from the specified page
 func getSpecificPage(organization string, email bool, client api.RESTClient, spinner *pterm.SpinnerPrinter, page int) Users {
 	// GitHub API uses 1-based page numbers
-	url := fmt.Sprintf("orgs/%s/members?per_page=100&page=%d", organization, page)
+	url := fmt.Sprintf("orgs/%s/members?per_page=%d&page=%d", organization, usersPerPage, page)
 
 	if err := limiter.WaitForTokenAndAcquire(context.Background()); err != nil {
 		spinner.Fail("Failed to acquire rate limit token")
@@ -82,7 +95,7 @@ func GetOrganizationUsers(organization string, email bool, client api.RESTClient
 	}
 
 	// Fetch first page to get total count
-	url := fmt.Sprintf("orgs/%s/members?per_page=100", organization)
+	url := fmt.Sprintf("orgs/%s/members?per_page=%d", organization, usersPerPage)
 	if err := limiter.WaitForTokenAndAcquire(context.Background()); err != nil {
 		spinner.Fail("Failed to acquire rate limit token")
 		pterm.Error.Printf("Failed to acquire rate limit token: %v\n", err)
