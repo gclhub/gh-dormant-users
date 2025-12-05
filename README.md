@@ -26,6 +26,7 @@ gh dormant-users report [flags]
 - `-e, --email`: Check if user has an email.
 - `--org-name string`: The name of the organization to report upon. (required)
 - `--activity-types strings`: Comma-separated list of activity types to check (commits, issues, issue-comments, pr-comments). Default is all types.
+- `-p, --page int`: Process a specific page of users (100 users per page). Page numbers are 1-based. If not specified, all users are processed. Useful for avoiding rate limits with large enterprise accounts.
 
 ### Example
 
@@ -39,6 +40,18 @@ To generate a report for the organization `foobar` starting from March 1, 2024, 
 
 ```zsh
 gh dormant-users report --date "Mar 1 2024" --org-name foobar --activity-types commits,issues
+```
+
+To process only the first 100 users (page 1) for the organization `foobar`:
+
+```zsh
+gh dormant-users report --date "Mar 1 2024" --org-name foobar --page 1
+```
+
+To process users 101-200 (page 2) for the organization `foobar`:
+
+```zsh
+gh dormant-users report --date "Mar 1 2024" --org-name foobar --page 2
 ```
 
 ## Output

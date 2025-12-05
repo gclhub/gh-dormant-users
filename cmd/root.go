@@ -30,6 +30,7 @@ func init() {
 	reportCmd.Flags().BoolP("email", "e", false, "Check if user has an email")
 	reportCmd.Flags().String("date", "", "The date from which to start looking for activity. Max 3 months in the past.")
 	reportCmd.Flags().StringSlice("activity-types", []string{"commits", "issues", "issue-comments", "pr-comments"}, "Comma-separated list of activity types to check (commits, issues, issue-comments, pr-comments)")
+	reportCmd.Flags().IntP("page", "p", 0, "Process a specific page of users (100 users per page). Page numbers are 1-based. If not specified, all users are processed.")
 	if err := reportCmd.MarkFlagRequired("org-name"); err != nil {
 		pterm.Error.PrintOnError(err)
 		os.Exit(1)

@@ -43,7 +43,7 @@ func GetIssuesSinceDate(organization string, repo string, date string, client ap
 			pterm.Error.Printf("Failed to acquire rate limit token: %v\n", err)
 			return nil
 		}
-		
+
 		response, err := client.Request("GET", url, nil)
 		if err != nil {
 			limiter.ReleaseConcurrentLimiter()

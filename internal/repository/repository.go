@@ -30,7 +30,7 @@ func GetOrgRepositories(organization string, client api.RESTClient) Repositories
 		pterm.Error.Printf("Failed to acquire rate limit token: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	response, err := client.Request("GET", url, nil)
 	if err != nil {
 		limiter.ReleaseConcurrentLimiter()
@@ -69,7 +69,7 @@ func GetOrgRepositories(organization string, client api.RESTClient) Repositories
 		if err := limiter.WaitForTokenAndAcquire(context.Background()); err != nil {
 			continue
 		}
-		
+
 		response, err := client.Request("GET", nextURL, nil)
 		if err != nil {
 			limiter.ReleaseConcurrentLimiter()
@@ -95,7 +95,7 @@ func GetOrgRepositories(organization string, client api.RESTClient) Repositories
 					if err := limiter.WaitForTokenAndAcquire(context.Background()); err != nil {
 						continue
 					}
-					
+
 					response, err := client.Request("GET", pageURL, nil)
 					if err != nil {
 						limiter.ReleaseConcurrentLimiter()

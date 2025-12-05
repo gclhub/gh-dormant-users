@@ -41,7 +41,7 @@ func GetOrganizationUsers(organization string, email bool, client api.RESTClient
 		pterm.Error.Printf("Failed to acquire rate limit token: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	response, err := client.Request("GET", url, nil)
 	if err != nil {
 		limiter.ReleaseConcurrentLimiter()
@@ -79,7 +79,7 @@ func GetOrganizationUsers(organization string, email bool, client api.RESTClient
 		if err := limiter.WaitForTokenAndAcquire(context.Background()); err != nil {
 			continue
 		}
-		
+
 		response, err := client.Request("GET", nextURL, nil)
 		if err != nil {
 			limiter.ReleaseConcurrentLimiter()
@@ -105,7 +105,7 @@ func GetOrganizationUsers(organization string, email bool, client api.RESTClient
 					if err := limiter.WaitForTokenAndAcquire(context.Background()); err != nil {
 						continue
 					}
-					
+
 					response, err := client.Request("GET", pageURL, nil)
 					if err != nil {
 						limiter.ReleaseConcurrentLimiter()
@@ -197,7 +197,7 @@ func getUserEmails(users Users) {
 					pterm.Info.Printf("Failed to acquire rate limit token: %v\n", err)
 					continue
 				}
-				
+
 				url := fmt.Sprintf("users/%s", users[index].Login)
 				response, err := client.Request("GET", url, nil)
 				if err != nil {

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"strconv"
 
 	"github.com/cli/go-gh"
 	"github.com/pterm/pterm"
@@ -24,6 +25,8 @@ func generateDormantUserReport(cmd *cobra.Command, args []string) {
 	orgName, _ := cmd.Flags().GetString("org-name")
 	email, _ := cmd.Flags().GetBool("email")
 	date, _ := cmd.Flags().GetString("date")
+	page, _ := cmd.Flags().GetInt("page")
+
 	client, err := gh.RESTClient(nil)
 	if err != nil {
 		pterm.Error.Printf("Failed to create REST client: %v\n", err)
@@ -40,9 +43,43 @@ func generateDormantUserReport(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	// Validate page number
+	if page < 0 {
+		pterm.Error.Println("Page number must be a positive integer")
+		os.Exit(1)
+	}
+
 	// Convert date to iso 8601 format
 	isoDate := dateUtil.GetISODate(date)
-	users := users.GetOrganizationUsers(orgName, email, client)
+	allUsers := users.GetOrganizationUsers(orgName, email, client)
+
+	// Apply pagination if page is specified
+	var usersToProcess users.Users
+	const usersPerPage = 100
+	totalUsers := len(allUsers)
+
+	if page > 0 {
+		// Calculate start and end indices for the page
+		startIdx := (page - 1) * usersPerPage
+		endIdx := startIdx + usersPerPage
+
+		// Handle case where page exceeds available users
+		if startIdx >= totalUsers {
+			pterm.Warning.Printf("Page %d exceeds available users (total: %d users). No users to process.\n", page, totalUsers)
+			os.Exit(0)
+		}
+
+		// Adjust end index if it exceeds total users
+		if endIdx > totalUsers {
+			endIdx = totalUsers
+		}
+
+		usersToProcess = allUsers[startIdx:endIdx]
+		pterm.Info.Printf("Processing page %d (users %d-%d of %d)\n", page, startIdx+1, endIdx, totalUsers)
+	} else {
+		usersToProcess = allUsers
+		pterm.Info.Printf("Processing all %d users\n", totalUsers)
+	}
 
 	repositories := repository.GetOrgRepositories(orgName, client)
 
@@ -54,9 +91,15 @@ func generateDormantUserReport(cmd *cobra.Command, args []string) {
 		WithRightPadding(1).
 		WithBottomPadding(1).
 		WithTopPadding(1)
-	box.Printfln("Number of users: %v\nNumber of repositories: %v", len(users), len(repositories))
+	box.Printfln("Number of users: %v\nNumber of repositories: %v", len(usersToProcess), len(repositories))
 	pterm.Info.Println("Checking for activity...")
-	activity.CheckActivity(users, orgName, repositories, isoDate, client, activityTypes)
+	activity.CheckActivity(usersToProcess, orgName, repositories, isoDate, client, activityTypes)
 	activity.GenerateBarChartOfActiveUsers()
-	activity.GenerateUserReportCSV(users, orgName+"-dormant-users.csv")
+
+	// Update CSV filename to include page number if specified
+	csvFilename := orgName + "-dormant-users.csv"
+	if page > 0 {
+		csvFilename = orgName + "-dormant-users-page-" + strconv.Itoa(page) + ".csv"
+	}
+	activity.GenerateUserReportCSV(usersToProcess, csvFilename)
 }
