@@ -24,7 +24,49 @@ type User struct {
 
 type Users []User
 
-func GetOrganizationUsers(organization string, email bool, client api.RESTClient) Users {
+// getSpecificPage fetches only a specific page of users from the organization
+func getSpecificPage(organization string, email bool, client api.RESTClient, spinner *pterm.SpinnerPrinter, page int) Users {
+	// GitHub API uses 1-based page numbers
+	url := fmt.Sprintf("orgs/%s/members?per_page=100&page=%d", organization, page)
+
+	if err := limiter.WaitForTokenAndAcquire(context.Background()); err != nil {
+		spinner.Fail("Failed to acquire rate limit token")
+		pterm.Error.Printf("Failed to acquire rate limit token: %v\n", err)
+		os.Exit(1)
+	}
+
+	response, err := client.Request("GET", url, nil)
+	if err != nil {
+		limiter.ReleaseConcurrentLimiter()
+		spinner.Fail("Failed to fetch users")
+		pterm.Error.Printf("Failed to fetch users: %v\n", err)
+		os.Exit(1)
+	}
+
+	var users Users
+	decoder := json.NewDecoder(response.Body)
+	err = decoder.Decode(&users)
+	response.Body.Close()
+
+	limiter.ReleaseAndHandleRateLimit(response)
+
+	if err != nil {
+		spinner.Fail("Failed to decode users")
+		pterm.PrintOnErrorf("Failed to decode users: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Get user emails if requested
+	if email {
+		getUserEmails(users)
+	}
+
+	spinner.Success(fmt.Sprintf("Fetched %d users from page %d", len(users), page))
+
+	return users
+}
+
+func GetOrganizationUsers(organization string, email bool, client api.RESTClient, page int) Users {
 	pterm.Info.Printf("Starting to fetch users for organization: %s\n", organization)
 
 	// Start the spinner
@@ -32,6 +74,11 @@ func GetOrganizationUsers(organization string, email bool, client api.RESTClient
 
 	if email {
 		pterm.Info.Println("Getting user emails, if present")
+	}
+
+	// If a specific page is requested, fetch only that page
+	if page > 0 {
+		return getSpecificPage(organization, email, client, spinner, page)
 	}
 
 	// Fetch first page to get total count

@@ -51,34 +51,14 @@ func generateDormantUserReport(cmd *cobra.Command, args []string) {
 
 	// Convert date to iso 8601 format
 	isoDate := dateUtil.GetISODate(date)
-	allUsers := users.GetOrganizationUsers(orgName, email, client)
 
-	// Apply pagination if page is specified
-	var usersToProcess users.Users
-	const usersPerPage = 100
-	totalUsers := len(allUsers)
+	// Fetch users - if page is specified, only fetch that page; otherwise fetch all
+	usersToProcess := users.GetOrganizationUsers(orgName, email, client, page)
 
 	if page > 0 {
-		// Calculate start and end indices for the page
-		startIdx := (page - 1) * usersPerPage
-		endIdx := startIdx + usersPerPage
-
-		// Handle case where page exceeds available users
-		if startIdx >= totalUsers {
-			pterm.Warning.Printf("Page %d exceeds available users (total: %d users). No users to process.\n", page, totalUsers)
-			os.Exit(0)
-		}
-
-		// Adjust end index if it exceeds total users
-		if endIdx > totalUsers {
-			endIdx = totalUsers
-		}
-
-		usersToProcess = allUsers[startIdx:endIdx]
-		pterm.Info.Printf("Processing page %d (users %d-%d of %d)\n", page, startIdx+1, endIdx, totalUsers)
+		pterm.Info.Printf("Processing page %d (%d users fetched)\n", page, len(usersToProcess))
 	} else {
-		usersToProcess = allUsers
-		pterm.Info.Printf("Processing all %d users\n", totalUsers)
+		pterm.Info.Printf("Processing all %d users\n", len(usersToProcess))
 	}
 
 	repositories := repository.GetOrgRepositories(orgName, client)
