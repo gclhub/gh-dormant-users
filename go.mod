@@ -6,6 +6,7 @@ require (
 	github.com/cli/go-gh v1.2.1
 	github.com/pterm/pterm v0.12.80
 	github.com/spf13/cobra v1.8.1
+	golang.org/x/time v0.14.0
 )
 
 require (
@@ -32,6 +33,5 @@ require (
 	golang.org/x/sys v0.27.0 // indirect
 	golang.org/x/term v0.26.0 // indirect
 	golang.org/x/text v0.20.0 // indirect
-	golang.org/x/time v0.14.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

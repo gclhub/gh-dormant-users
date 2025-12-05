@@ -24,7 +24,62 @@ type User struct {
 
 type Users []User
 
-func GetOrganizationUsers(organization string, email bool, client api.RESTClient) Users {
+const usersPerPage = 100
+
+// getSpecificPage fetches a single page of users from the organization via GitHub API.
+// This function is used when pagination is requested to avoid fetching all users.
+//
+// Parameters:
+//   - organization: The name of the GitHub organization
+//   - email: Whether to fetch email addresses for users
+//   - client: The GitHub API REST client
+//   - spinner: Progress spinner for user feedback
+//   - page: The 1-based page number to fetch (each page contains up to 100 users)
+//
+// Returns:
+//   - Users: A slice containing the users from the specified page
+func getSpecificPage(organization string, email bool, client api.RESTClient, spinner *pterm.SpinnerPrinter, page int) Users {
+	// GitHub API uses 1-based page numbers
+	url := fmt.Sprintf("orgs/%s/members?per_page=%d&page=%d", organization, usersPerPage, page)
+
+	if err := limiter.WaitForTokenAndAcquire(context.Background()); err != nil {
+		spinner.Fail("Failed to acquire rate limit token")
+		pterm.Error.Printf("Failed to acquire rate limit token: %v\n", err)
+		os.Exit(1)
+	}
+
+	response, err := client.Request("GET", url, nil)
+	if err != nil {
+		limiter.ReleaseConcurrentLimiter()
+		spinner.Fail("Failed to fetch users")
+		pterm.Error.Printf("Failed to fetch users: %v\n", err)
+		os.Exit(1)
+	}
+
+	var users Users
+	decoder := json.NewDecoder(response.Body)
+	err = decoder.Decode(&users)
+	response.Body.Close()
+
+	limiter.ReleaseAndHandleRateLimit(response)
+
+	if err != nil {
+		spinner.Fail("Failed to decode users")
+		pterm.PrintOnErrorf("Failed to decode users: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Get user emails if requested
+	if email {
+		getUserEmails(users)
+	}
+
+	spinner.Success(fmt.Sprintf("Fetched %d users from page %d", len(users), page))
+
+	return users
+}
+
+func GetOrganizationUsers(organization string, email bool, client api.RESTClient, page int) Users {
 	pterm.Info.Printf("Starting to fetch users for organization: %s\n", organization)
 
 	// Start the spinner
@@ -34,14 +89,19 @@ func GetOrganizationUsers(organization string, email bool, client api.RESTClient
 		pterm.Info.Println("Getting user emails, if present")
 	}
 
+	// If a specific page is requested, fetch only that page
+	if page > 0 {
+		return getSpecificPage(organization, email, client, spinner, page)
+	}
+
 	// Fetch first page to get total count
-	url := fmt.Sprintf("orgs/%s/members?per_page=100", organization)
+	url := fmt.Sprintf("orgs/%s/members?per_page=%d", organization, usersPerPage)
 	if err := limiter.WaitForTokenAndAcquire(context.Background()); err != nil {
 		spinner.Fail("Failed to acquire rate limit token")
 		pterm.Error.Printf("Failed to acquire rate limit token: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	response, err := client.Request("GET", url, nil)
 	if err != nil {
 		limiter.ReleaseConcurrentLimiter()
@@ -79,7 +139,7 @@ func GetOrganizationUsers(organization string, email bool, client api.RESTClient
 		if err := limiter.WaitForTokenAndAcquire(context.Background()); err != nil {
 			continue
 		}
-		
+
 		response, err := client.Request("GET", nextURL, nil)
 		if err != nil {
 			limiter.ReleaseConcurrentLimiter()
@@ -105,7 +165,7 @@ func GetOrganizationUsers(organization string, email bool, client api.RESTClient
 					if err := limiter.WaitForTokenAndAcquire(context.Background()); err != nil {
 						continue
 					}
-					
+
 					response, err := client.Request("GET", pageURL, nil)
 					if err != nil {
 						limiter.ReleaseConcurrentLimiter()
@@ -197,7 +257,7 @@ func getUserEmails(users Users) {
 					pterm.Info.Printf("Failed to acquire rate limit token: %v\n", err)
 					continue
 				}
-				
+
 				url := fmt.Sprintf("users/%s", users[index].Login)
 				response, err := client.Request("GET", url, nil)
 				if err != nil {
